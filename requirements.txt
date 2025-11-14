@@ -1,0 +1,14 @@
+Flask
+eventlet
+gunicorn
+msal
+pyodbc
+python-dotenv
+requests
+numpy
+scipy
+Pillow
+flask-session
+
+
+
