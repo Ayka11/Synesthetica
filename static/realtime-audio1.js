@@ -32,6 +32,21 @@ class RealTimeAudioEngine {
         this.masterGain.connect(this.compressor);
         
         // Compressor -> Dry
+        // Scales and Rhythm
+        this.currentScale = 'chromatic';
+        this.bpm = 120;
+        
+        this.scales = {
+            'chromatic': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+            'major': [0, 2, 4, 5, 7, 9, 11],
+            'minor': [0, 2, 3, 5, 7, 8, 10],
+            'pentatonic': [0, 2, 4, 7, 9],
+            'blues': [0, 3, 5, 6, 7, 10],
+            'dorian': [0, 2, 3, 5, 7, 9, 10],
+            'phrygian': [0, 1, 3, 5, 7, 8, 10]
+        };
+        
+        // Audio chain connections
         this.compressor.connect(this.dryGain);
         this.dryGain.connect(this.analyser);
         
@@ -60,6 +75,59 @@ class RealTimeAudioEngine {
     setInstrument(instrument) {
         this.currentInstrument = instrument;
         console.log(`Instrument set to: ${instrument}`);
+    }
+    
+    setScale(scale) {
+        if (this.scales[scale]) {
+            this.currentScale = scale;
+            console.log(`Scale set to: ${scale}`);
+        }
+    }
+
+    setBPM(bpm) {
+        this.bpm = Math.max(40, Math.min(300, bpm));
+        console.log(`BPM set to: ${this.bpm}`);
+    }
+
+    quantizeFrequency(frequency, scaleName) {
+        if (scaleName === 'chromatic') return frequency;
+        
+        // Convert freq to MIDI note number
+        // MIDI = 69 + 12 * log2(f / 440)
+        const midiNote = 69 + 12 * Math.log2(frequency / 440);
+        const roundedMidi = Math.round(midiNote);
+        
+        // Note class (0-11, where 0=C if we assume A=9... wait)
+        // A=440 is MIDI 69. 69 % 12 = 9 (A).
+        // C is 0 relative to C.
+        // Let's normalize to C = 0.
+        // 69 is A4. C4 is 60.
+        
+        const noteClass = roundedMidi % 12; // 0=C, 1=C#, etc... if we align MIDI standard
+        
+        const scaleIntervals = this.scales[scaleName];
+        
+        // Find nearest interval in scale
+        let minDiff = Infinity;
+        let bestNote = roundedMidi;
+        
+        // Check current octave, prev octave, next octave for best match
+        // Simple scale snapping:
+        // We need to find n such that (n % 12) is in scaleIntervals
+        // and abs(n - roundedMidi) is minimized.
+        
+        for (let i = roundedMidi - 6; i <= roundedMidi + 6; i++) {
+            const pc = i % 12;
+            if (scaleIntervals.includes(pc)) {
+                if (Math.abs(i - roundedMidi) < minDiff) {
+                    minDiff = Math.abs(i - roundedMidi);
+                    bestNote = i;
+                }
+            }
+        }
+        
+        // Convert back to freq
+        return 440 * Math.pow(2, (bestNote - 69) / 12);
     }
     
     createPianoWave() {
@@ -127,7 +195,7 @@ class RealTimeAudioEngine {
         panner.pan.value = panValue;
         
         // Apply brush-specific waveform and filtering
-        this.applyBrushCharacteristics(oscillator, filter, brushType, frequency);
+        this.applyBrushCharacteristics(oscillator, filter, brushType, frequency, gainNode);
         
         // Enhanced envelope with sustain - adjusted for cleaner release
         gainNode.gain.setValueAtTime(0, now);
@@ -154,7 +222,7 @@ class RealTimeAudioEngine {
         this.trackNote(r, g, b, brushType, frequency);
     }
     
-    applyBrushCharacteristics(oscillator, filter, brushType, frequency) {
+    applyBrushCharacteristics(oscillator, filter, brushType, frequency, gainNode) {
         // First apply instrument timbre (waveform)
         if (['piano', 'guitar', 'strings'].includes(this.currentInstrument)) {
             let wave;
@@ -174,6 +242,39 @@ class RealTimeAudioEngine {
 
         // Apply filter characteristics based on brush type (still relevant for texture)
         switch(brushType.toLowerCase()) {
+            case 'grid':
+                // Rhythmic pulsing (LFO) - Modulates Filter for Wah effect
+                // AND Modulates Gain for gating effect
+                
+                // 1. Oscillator Base
+                oscillator.type = 'sawtooth'; // Sawtooth cuts through better
+                
+                // 2. Filter Base
+                filter.type = 'lowpass';
+                filter.frequency.value = frequency;
+                filter.Q.value = 5; // Resonant
+                
+                // 3. LFO Setup
+                const lfo = this.audioContext.createOscillator();
+                lfo.type = 'square';
+                lfo.frequency.value = this.bpm / 60; // Beat frequency
+                
+                // 4. LFO -> Filter Frequency (Wah)
+                const lfoFilterGain = this.audioContext.createGain();
+                lfoFilterGain.gain.value = 1000; // Sweep 1000Hz
+                lfo.connect(lfoFilterGain);
+                lfoFilterGain.connect(filter.frequency);
+                
+                // 5. LFO -> Volume Gating (Tremolo)
+                // We need to connect to gainNode.gain
+                // gainNode.gain is already being automated by the envelope.
+                // Modulating it might conflict or require offset.
+                // Let's stick to Filter modulation (Wah) which is safer and distinct.
+                
+                lfo.start(this.audioContext.currentTime);
+                lfo.stop(this.audioContext.currentTime + 0.85);
+                break;
+
             case 'round':
                 // oscillator.type = 'sine'; // Handled above
                 filter.type = 'lowpass';
@@ -289,7 +390,10 @@ class RealTimeAudioEngine {
         // Add subtle vibrato based on saturation
         const vibratoAmount = saturation / 255 * 0.02; // Up to 2% vibrato
         
-        return baseFreq * octaveMultiplier * (1 + vibratoAmount);
+        let freq = baseFreq * octaveMultiplier * (1 + vibratoAmount);
+        
+        // Apply Scale Quantization
+        return this.quantizeFrequency(freq, this.currentScale);
     }
     
     getSaturation(r, g, b) {
