@@ -20,12 +20,63 @@
     ></script>
 
     <style>
+      :root {
+        --bg-color: #f9fafb;
+        --text-color: #111827;
+        --header-bg: rgba(255, 255, 255, 0.9);
+        --footer-bg: #111827;
+        --footer-text: #f9fafb;
+        --border-color: #e5e7eb;
+        --accent-color: #4f46e5;
+      }
+      
+      .dark {
+        --bg-color: #111827;
+        --text-color: #f9fafb;
+        --header-bg: rgba(17, 24, 39, 0.9);
+        --footer-bg: #000000;
+        --footer-text: #9ca3af;
+        --border-color: #374151;
+        --accent-color: #6366f1;
+      }
+
       body {
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
         display: flex;
         flex-direction: column;
         min-height: 100vh;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        transition: background-color 0.3s, color 0.3s;
       }
+      
+      header {
+        background-color: var(--header-bg) !important;
+        border-color: var(--border-color) !important;
+      }
+      
+      /* Dark mode specific overrides */
+      .dark .bg-white {
+        background-color: #1f2937 !important;
+        color: #f3f4f6 !important;
+      }
+      
+      .dark .bg-gray-50 {
+        background-color: #111827 !important;
+      }
+      
+      .dark .text-gray-900 {
+        color: #f3f4f6 !important;
+      }
+      
+      .dark .text-gray-600, .dark .text-gray-500 {
+        color: #9ca3af !important;
+      }
+      
+      .dark .border-gray-200, .dark .border-gray-300 {
+        border-color: #374151 !important;
+      }
+      
       main {
         flex: 1 0 auto;
       }
@@ -52,10 +103,17 @@
         transform: translateY(-1px);
       }
     </style>
+    <script>
+      // Apply theme on load
+      if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    </script>
     {% block head %}{% endblock %}
   </head>
-            <a href="#" onclick="toggleSection('upload')" class="text-gray-600 hover:text-indigo-600 font-medium transition-colors">Upload</a>
-  <body class="bg-gray-50 text-gray-900">
+  <body class="transition-colors duration-300">
     
     <!-- Header -->
     <header class="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
@@ -66,6 +124,24 @@
             <a href="/" class="flex items-center gap-2 group">
               <!-- Assuming logo exists, else use text -->
               <span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 group-hover:from-indigo-500 group-hover:to-purple-500 transition-all duration-300">
+            <div class="border-l border-gray-300 h-6 mx-2 dark:border-gray-600"></div>
+            
+            <!-- Language Selector -->
+            <select id="langSelect" class="bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 border-none focus:ring-0 cursor-pointer" onchange="changeLanguage(this.value)">
+                <option value="en">EN</option>
+                <option value="az">AZ</option>
+                <option value="es">ES</option>
+                <option value="fr">FR</option>
+                <option value="ru">RU</option>
+                <option value="tr">TR</option>
+            </select>
+
+            <!-- Theme Toggle -->
+            <button onclick="toggleTheme()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none">
+                <svg id="themeIcon" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
                 Synesthetica
               </span>
             </a>
@@ -127,6 +203,133 @@
       </div>
     </header>
 
+<script>
+    // --- Theme Logic ---
+    function toggleTheme() {
+        if (document.documentElement.classList.contains('dark')) {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        } else {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        }
+        updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+        const icon = document.getElementById('themeIcon');
+        if (document.documentElement.classList.contains('dark')) {
+            // Sun icon
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />';
+        } else {
+            // Moon icon
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />';
+        }
+    }
+    
+    // Init icon
+    updateThemeIcon();
+
+    // --- I18n Logic ---
+    const translations = {
+        en: {
+            about: "About",
+            create: "Create",
+            pricing: "Pricing",
+            support: "Support",
+            login: "Login",
+            logout: "Logout",
+            upload: "Upload",
+            // Add more keys as needed for main content
+        },
+        az: {
+            about: "Haqqımızda",
+            create: "Yarat",
+            pricing: "Qiymətlər",
+            support: "Dəstək",
+            login: "Giriş",
+            logout: "Çıxış",
+            upload: "Yüklə"
+        },
+        es: {
+            about: "Sobre nosotros",
+            create: "Crear",
+            pricing: "Precios",
+            support: "Soporte",
+            login: "Acceso",
+            logout: "Salir",
+            upload: "Subir"
+        },
+        fr: {
+            about: "À propos",
+            create: "Créer",
+            pricing: "Tarifs",
+            support: "Support",
+            login: "Connexion",
+            logout: "Déconnexion",
+            upload: "Télécharger"
+        },
+        ru: {
+            about: "О нас",
+            create: "Создать",
+            pricing: "Цены",
+            support: "Поддержка",
+            login: "Войти",
+            logout: "Выйти",
+            upload: "Загрузить"
+        },
+        tr: {
+            about: "Hakkımızda",
+            create: "Oluştur",
+            pricing: "Fiyatlandırma",
+            support: "Destek",
+            login: "Giriş",
+            logout: "Çıkış",
+            upload: "Yükle"
+        }
+    };
+
+    function changeLanguage(lang) {
+        localStorage.setItem('lang', lang);
+        const t = translations[lang];
+        if (!t) return;
+        
+        // Update Nav Links (Simple ID-less approach: iterate known links or add IDs)
+        // Adding IDs to nav links would be cleaner, but let's try selector matching for now
+        // Or simpler: reload page with ?lang= query param? No, client-side is faster.
+        
+        // Let's add IDs to the layout links in a separate step or find them by href
+        updateTextByHref('/about', t.about);
+        updateTextByHref('/', t.create);
+        updateTextByHref('/pricing', t.pricing);
+        updateTextByHref('/support', t.support);
+        
+        // Login/Logout buttons might need specific IDs
+        const loginBtn = document.querySelector('a[href="/auth"]');
+        if (loginBtn) loginBtn.innerText = t.login;
+        
+        const logoutBtn = document.querySelector('a[href="/logout"]');
+        if (logoutBtn) logoutBtn.innerText = t.logout;
+        
+        // Upload link (onclick toggle)
+        const uploadLink = document.querySelector('a[onclick*="toggleSection"]');
+        if (uploadLink) uploadLink.innerText = t.upload;
+    }
+
+    function updateTextByHref(href, text) {
+        const el = document.querySelector(`nav a[href="${href}"]`);
+        if (el) el.innerText = text;
+        
+        // Also mobile menu
+        const mobileEl = document.querySelector(`#mobile-menu a[href="${href}"]`);
+        if (mobileEl) mobileEl.innerText = text;
+    }
+
+    // Init Lang
+    const savedLang = localStorage.getItem('lang') || 'en';
+    document.getElementById('langSelect').value = savedLang;
+    changeLanguage(savedLang);
+</script>
     <main class="flex-grow">
       {% block content %}{% endblock %}
     </main>
